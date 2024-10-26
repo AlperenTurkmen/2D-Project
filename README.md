@@ -1,4 +1,4 @@
-# Dialogue Bug Fixes README
+# Pick Up Mushrooms Bug Fixes README
 
 ## Overview
 This README details the fixes implemented for two major bugs encountered in the NPC dialogue system:
