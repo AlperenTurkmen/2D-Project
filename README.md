@@ -1,91 +1,86 @@
-# Word Puzzle Game
-
-A Unity-based word puzzle game inspired by popular word guessing games. The player attempts to guess a target word by entering letters. The game provides feedback on each guess, indicating correct, incorrect, or misplaced letters.
-
-## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
-- [Scripts Explanation](#scripts-explanation)
+# Dialogue Bug Fixes README
 
 ## Overview
-In this game, players guess a hidden word by entering letters. Each guess is validated against a list of possible words, and feedback is provided for each letter:
+This README details the fixes implemented for two major bugs encountered in the NPC dialogue system:
 
-- **Green** for correct letters in the correct positions.
-- **Yellow** for correct letters in the wrong positions.
-- **Gray** for incorrect letters.
+1. **Dialogue Words Scrambling**: A bug where the dialogue text would scramble or mix multiple lines when the player skipped the dialogue before it was fully typed out.
+2. **Skipping Multiple Lines at Once**: A bug that allowed the dialogue to advance incorrectly when the player tried to skip multiple lines, causing the dialogue to overlap or appear incorrect.
+3. **Log Blocking Character**: A rigidbody log that was unintentionally blocking the character's movement.
 
-The game provides options to start a new game or retry the same word.
+## Bug Descriptions and Solutions
 
-## Features
-- Input handling for alphabetic characters.
-- Word validation against a predefined list of solutions and valid words.
-- Feedback for each guess with visual indicators for letter states.
-- Easy-to-use UI for starting a new game or trying again.
+### 1. Dialogue Words Scrambling
+- **Issue**: When the player pressed the skip button before the dialogue finished typing, the next line was concatenated with the previous incomplete line, resulting in a scrambled and unreadable text.
+- **Solution**: The problem was solved by adding a method called `CompleteTyping()`. This method stops the typing coroutine and immediately completes the display of the current dialogue text. When a player skips the dialogue, `CompleteTyping()` ensures that the current line is fully rendered before proceeding to the next, preventing any scrambled words.
+  
+  **Changes Made**:
+  - Added `CompleteTyping()` method to stop the typing coroutine and set the full text immediately.
+  - Updated the `Update()` method to call `CompleteTyping()` when the skip button (`KeyCode.E`) is pressed during typing.
+  - Ensured that `dialogueText.text` is cleared properly before starting new lines to avoid overlapping text.
 
-## Getting Started
-### Prerequisites
-- **Unity**: Version 2021.3 or later is recommended.
-- **TextMeshPro**: Ensure that TextMeshPro is installed through the Unity Package Manager, as the game uses it for displaying text.
+### 2. Skipping Multiple Lines at Once
+- **Issue**: When the player attempted to skip multiple lines in quick succession, the dialogue system did not handle the coroutine management properly, causing dialogue lines to overlap and display incorrectly.
+- **Solution**: To solve this, `StopAllCoroutines()` was used to ensure that any ongoing coroutine is terminated before starting a new one. This ensured that each line of dialogue was properly separated and displayed without overlap.
+  
+  **Changes Made**:
+  - Added `StopAllCoroutines()` in the `NextLine()` and `ResetDialogue()` methods to make sure no typing coroutine was left running when advancing or resetting the dialogue.
+  - Cleared `dialogueText.text` before starting new coroutines to guarantee that no text from previous lines was left over.
 
-### Setup
-1. **Clone the Repository**:
+### 3. Log Blocking Character
+- **Issue**: A rigidbody log was blocking the character's movement, causing unintended gameplay issues.
+- **Solution**: The log was moved out of the way to prevent interference with the character's path.
 
-   ```bash
-   git clone https://gitlab.com/yourusername/word-puzzle-game.git
-   ```
+  **Changes Made**:
+  - Adjusted the position of the log in the scene to ensure it no longer obstructs the character's movement.
 
-2. **Open the Project**:
-   - Open Unity Hub and add the cloned project folder.
-   - Open the project in Unity.
+## Updated Methods Summary
 
-3. **Set Up Word Lists**:
-   - Place text files for valid words and solutions in the Resources folder.
-   - Ensure they are named `official_wordle_common.txt` and `official_wordle_all.txt` for solutions and valid words, respectively.
-
-4. **Run the Game**:
-   - Open the `MainScene` in the Unity Editor.
-   - Press the Play button in Unity to start the game.
-
-## Project Structure
+### `CompleteTyping()`
+```csharp
+private void CompleteTyping()
+{
+    StopCoroutine(nameof(Typing));
+    dialogueText.text = dialogue[currentIndex];
+    isTyping = false;
+}
 ```
-Assets/
-|-- Scripts/
-|   |-- Board.cs            # Manages game flow, input handling, and game logic
-|   |-- Row.cs              # Represents a row of letter tiles
-|   |-- Tile.cs             # Represents a single tile on the board
-|-- Resources/
-|   |-- official_wordle_common.txt  # List of target words
-|   |-- official_wordle_all.txt     # List of valid guessable words
-|-- Prefabs/
-|   |-- Row.prefab          # Prefab for rows of tiles
-|   |-- Tile.prefab         # Prefab for individual tiles
-|-- Scenes/
-|   |-- MainScene.unity     # Main scene for the game
+- Stops the current typing coroutine and immediately completes the display of the dialogue text.
+
+### `NextLine()`
+```csharp
+public void NextLine()
+{
+    if (currentIndex < dialogue.Length - 1)
+    {
+        currentIndex++;
+        StopAllCoroutines();
+        dialogueText.text = ""; // Clear the previous text completely
+        StartCoroutine(Typing());
+    }
+    else
+    {
+        ResetDialogue();
+    }
+}
 ```
+- Ensures that any existing coroutine is stopped before advancing to the next line.
+- Clears previous dialogue text before starting the typing coroutine.
 
-## Scripts Explanation
-### Board.cs
-Handles the core game logic, including input handling, word validation, and updating the board.
+### `ResetDialogue()`
+```csharp
+private void ResetDialogue()
+{
+    StopAllCoroutines();
+    dialogueText.text = "";
+    currentIndex = 0;
+    dialoguePanel.SetActive(false);
+    isTyping = false;
+}
+```
+- Stops all ongoing coroutines to prevent any residual typing.
+- Clears the dialogue text and resets all necessary variables.
 
-**Key Methods**:
-- `StartNewGame()`: Resets the game board and selects a new target word.
-- `Update()`: Processes player input and updates the current row.
-- `SubmitRow()`: Validates a player's guess and provides feedback.
-- `HandleBackspace()` and `HandleLetterInput()`: Manage input for deleting and adding letters.
+## Conclusion
+The above fixes ensure a smoother dialogue experience by addressing both text scrambling and incorrect skipping behavior. The dialogue now functions as intended, allowing players to skip lines without scrambling words or overlapping multiple lines of dialogue.
 
-### Row.cs
-Represents a row of tiles.
-
-- Stores the guessed word formed by the player's inputs.
-- `Awake()`: Initializes the tiles in the row.
-
-### Tile.cs
-Represents a single tile in the game.
-
-- Displays a letter and changes its visual state based on feedback.
-
-**Methods**:
-- `SetLetter()`: Sets the displayed letter.
-- `SetState()`: Updates the tile's color based on whether the letter is correct, incorrect, or misplaced.
+Additionally, the rigidbody log blocking the character's movement was moved to ensure unobstructed gameplay, enhancing the overall user experience.
